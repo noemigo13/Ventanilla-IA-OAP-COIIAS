@@ -143,7 +143,15 @@ export default async (req: Request): Promise<Response> => {
         contents: [{ role: "user", parts: [{ text: construirPrompt(datos) }] }],
         generationConfig: {
           temperature: 0.6,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 4096,
+          // gemini-2.5-flash piensa por defecto y esos tokens de "thinking"
+          // restan del mismo maxOutputTokens: con un cuestionario real (7
+          // dimensiones, hasta 4 videos cada una) el pensamiento se comia
+          // ~1300 de 2048 tokens y el JSON se cortaba a mitad de frase
+          // (finishReason MAX_TOKENS -> "Gemini no ha devuelto un JSON
+          // valido"). No hace falta razonamiento profundo para redactar
+          // este texto, así que se desactiva.
+          thinkingConfig: { thinkingBudget: 0 },
           responseMimeType: "application/json",
           responseSchema: RESPONSE_SCHEMA,
         },
@@ -177,7 +185,20 @@ export default async (req: Request): Promise<Response> => {
   let resultado: RespuestaInformeIA;
   try {
     resultado = JSON.parse(texto);
-  } catch {
+  } catch (err) {
+    // Se registra el motivo de corte (normalmente MAX_TOKENS) y el final
+    // del texto: es lo que hay que mirar en Netlify > Functions > logs si
+    // esto se repite con la clave definitiva.
+    console.error(
+      "[generar-informe-ia] JSON invalido. finishReason:",
+      cuerpo?.candidates?.[0]?.finishReason,
+      "usage:",
+      JSON.stringify(cuerpo?.usageMetadata),
+      "ultimos 300 caracteres:",
+      texto.slice(-300),
+      "error:",
+      err instanceof Error ? err.message : err,
+    );
     return json({ error: "Gemini no ha devuelto un JSON valido." }, 502);
   }
 
