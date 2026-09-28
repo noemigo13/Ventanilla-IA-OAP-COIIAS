@@ -3,6 +3,17 @@
   command = "npm run build"
   publish = "dist"
 
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Antes del catch-all del SPA: sin esto, "/*" -> index.html se comería la
+# ruta de la funcion serverless de IA (el orden de los redirects importa).
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

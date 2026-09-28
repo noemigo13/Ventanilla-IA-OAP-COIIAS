@@ -22,10 +22,16 @@ digitalización de empresas y asesorarlas con el material didáctico del canal
    configuración para desplegar con datos reales (ver sección "Siguiente
    paso" más abajo).
 5. Recomendador IA por resultado (vía Netlify Function) que explora el JSON y
-   justifica los vídeos recomendados — futuro, no empezado.
-6. Ampliar el editor de informe con generación asistida por IA del texto —
-   futuro; hoy el texto inicial es una plantilla determinista y el equipo lo
-   edita a mano antes de exportar a PDF.
+   justifica los vídeos recomendados — pendiente para la pantalla pública de
+   resultado; ya implementado para el informe del dashboard (ver punto 6).
+6. **Completada.** Editor de informe con generación asistida por IA: un botón
+   "Generar con IA" en `/dashboard/:id/informe` llama a la Netlify Function
+   `app/netlify/functions/generar-informe-ia.mts` (Gemini 2.5 Flash) para
+   redactar resumen ejecutivo, saludo, cierre y comentario por área, con el
+   contexto real de las respuestas y los resúmenes de los vídeos
+   recomendados. Sigue siendo texto editable a mano antes de exportar a PDF;
+   si Gemini falla la plantilla determinista de siempre sigue funcionando.
+   Ver `app/README.md` para la configuración de `GEMINI_API_KEY`.
 
 ## App (`app/`)
 

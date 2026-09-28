@@ -78,3 +78,33 @@ del repo): `base = app`, `command = npm run build`, `publish = dist`.
    en `false`.
 6. Desplegar las reglas de seguridad: `firebase deploy --only firestore:rules --project <id-real>`
    (ejecutar desde la raiz del repo, donde esta `firebase.json`).
+
+## Generacion de informe con IA (Gemini)
+
+El boton "Generar con IA" del editor de informe (`/dashboard/:id/informe`)
+llama a la Netlify Function `netlify/functions/generar-informe-ia.mts`, que
+usa Gemini 2.5 Flash para redactar un resumen ejecutivo, saludo, cierre y un
+comentario por area, con el contexto real de las respuestas y los resumenes
+de los videos recomendados. El texto generado sigue siendo editable a mano
+antes de exportar a PDF; si Gemini falla o se agota la cuota gratuita, el
+informe sigue funcionando con las plantillas deterministas de siempre.
+
+La API key de Gemini vive **solo** en el entorno de la funcion, nunca en el
+cliente:
+
+1. Consigue una key gratuita en <https://aistudio.google.com/apikey>.
+2. Definela como variable de entorno del sitio en Netlify: `GEMINI_API_KEY`
+   (Site settings > Environment variables). No lleva prefijo `VITE_` a
+   proposito.
+3. Para probarlo en local hace falta `netlify dev` (no basta con `vite dev`,
+   que no sirve funciones serverless): instala el Netlify CLI
+   (`npm install -g netlify-cli`), pon `GEMINI_API_KEY=...` en `app/.env` y
+   ejecuta `netlify dev` desde la raiz del repo.
+
+La funcion exige un ID token de Firebase Auth valido (el mismo login del
+dashboard) antes de llamar a Gemini, para que la URL de la funcion no se
+pueda usar para agotar la cuota gratuita desde fuera del equipo.
+
+Si en algun momento se ha compartido una API key de Gemini por un canal no
+seguro (chat, email, etc.), revocala y genera una nueva en AI Studio antes de
+usarla en produccion.

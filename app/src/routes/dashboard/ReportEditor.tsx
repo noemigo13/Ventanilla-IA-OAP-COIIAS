@@ -4,6 +4,7 @@ import { suscribirRespuesta } from "../../lib/firestore";
 import { cuestionario } from "../../lib/cuestionario";
 import { videoPorId } from "../../lib/videos";
 import { idsRecomendadosDimension, claseBarra } from "../../lib/scoring";
+import { construirSolicitudInformeIA, generarInformeIA } from "../../lib/iaInforme";
 import type { Respuesta } from "../../types/respuesta";
 
 function textoSaludoInicial(r: Respuesta): string {
@@ -66,6 +67,8 @@ export function ReportEditor() {
   const [respuesta, setRespuesta] = useState<Respuesta | null | undefined>(undefined);
   const inicializado = useRef(false);
   const [textos, setTextos] = useState<Record<string, string>>({});
+  const [iaEstado, setIaEstado] = useState<"inactivo" | "cargando" | "error">("inactivo");
+  const [iaError, setIaError] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -115,6 +118,37 @@ export function ReportEditor() {
     window.print();
   }
 
+  async function handleGenerarIA() {
+    setIaEstado("cargando");
+    setIaError("");
+    try {
+      const solicitud = construirSolicitudInformeIA(
+        r.perfil,
+        r.resultado.dimensiones,
+        r.resultado.pct_global,
+        tier?.label ?? r.resultado.tier,
+        r.respuestas,
+      );
+      const generado = await generarInformeIA(solicitud);
+      setTextos((prev) => {
+        const siguiente: Record<string, string> = {
+          ...prev,
+          resumen_ejecutivo: generado.resumen_ejecutivo,
+          saludo: generado.saludo,
+          cierre: generado.cierre,
+        };
+        for (const d of generado.dimensiones) {
+          siguiente[`dim_comentario_${d.id}`] = d.comentario;
+        }
+        return siguiente;
+      });
+      setIaEstado("inactivo");
+    } catch (err) {
+      setIaError(err instanceof Error ? err.message : "Error generando el informe con IA.");
+      setIaEstado("error");
+    }
+  }
+
   return (
     <>
       <div className="dash-panel informe-barra-acciones no-imprimir">
@@ -122,6 +156,14 @@ export function ReportEditor() {
           ← Volver a la respuesta
         </button>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {iaEstado === "error" && (
+            <p className="campo-nota" style={{ margin: 0, maxWidth: 260, textAlign: "right", color: "var(--rojo, #c0392b)" }}>
+              {iaError}
+            </p>
+          )}
+          <button className="btn-secundario" onClick={handleGenerarIA} disabled={iaEstado === "cargando"}>
+            {iaEstado === "cargando" ? "Generando con IA…" : "✨ Generar con IA"}
+          </button>
           <p className="campo-nota" style={{ margin: 0, maxWidth: 260, textAlign: "right" }}>
             Antes de guardar: en el diálogo de impresión, abre "Más ajustes" y desactiva "Encabezados y pies de
             página" para que no salga la URL.
@@ -152,6 +194,13 @@ export function ReportEditor() {
         </div>
 
         <EditableBlock value={textos.saludo ?? ""} onSave={guardarTexto("saludo")} />
+
+        {textos.resumen_ejecutivo && (
+          <div className="informe-resumen-ia">
+            <h3 className="informe-seccion-titulo">Resumen ejecutivo</h3>
+            <EditableBlock value={textos.resumen_ejecutivo} onSave={guardarTexto("resumen_ejecutivo")} />
+          </div>
+        )}
 
         {tier && (
           <div className="informe-resultado-global">

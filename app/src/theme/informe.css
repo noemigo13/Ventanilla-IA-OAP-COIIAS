@@ -53,6 +53,12 @@
 .informe-resultado-global .informe-editable-texto { color: var(--tinta-suave); }
 
 .informe-seccion-titulo { font-size: 16px; margin-bottom: 14px; }
+
+.informe-resumen-ia {
+  margin: 18px 0 26px; padding: 16px 20px; border-radius: 8px;
+  background: var(--superficie-alt); border-left: 3px solid var(--azul, var(--verde));
+}
+.informe-resumen-ia .informe-seccion-titulo { margin-bottom: 8px; }
 .informe-dimension { break-inside: avoid; margin-bottom: 4px; }
 
 .informe-cta { margin: 4px 0 28px; }
