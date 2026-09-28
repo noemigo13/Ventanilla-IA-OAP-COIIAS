@@ -15,7 +15,14 @@ import type { RespuestaInformeIA, SolicitudInformeIA } from "../../src/types/inf
 
 const FIREBASE_PROJECT_ID = process.env.VITE_FIREBASE_PROJECT_ID;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = "gemini-2.5-flash";
+// "gemini-2.5-flash" ya no esta disponible para claves nuevas (la propia API
+// devuelve 404 pidiendo migrar). "gemini-flash-lite-latest" es el alias que
+// Google mantiene apuntando siempre al flash-lite vigente: en las pruebas de
+// esta clave los modelos flash "grandes" (gemini-flash-latest, 3.5-flash,
+// 3.8-flash) daban 503 "high demand" de forma sostenida, mientras que el
+// lite respondia bien. Revisar si conviene subir a un flash no-lite cuando
+// se pase a la clave definitiva.
+const GEMINI_MODEL = "gemini-flash-lite-latest";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const jwks = FIREBASE_PROJECT_ID
@@ -144,13 +151,17 @@ export default async (req: Request): Promise<Response> => {
 
   if (!respuestaGemini.ok) {
     const detalle = await respuestaGemini.text().catch(() => "");
-    const status = respuestaGemini.status === 429 ? 429 : 502;
-    const mensaje =
-      status === 429
-        ? "Se ha agotado la cuota gratuita de Gemini por ahora. Prueba de nuevo en unos minutos."
-        : "Gemini ha devuelto un error generando el informe.";
     console.error("[generar-informe-ia] Gemini error", respuestaGemini.status, detalle);
-    return json({ error: mensaje }, status);
+    // 429 = cuota agotada; 503 = "high demand" de Google en el modelo, algo
+    // frecuente en el tier gratuito de los modelos flash mas nuevos. Ambos
+    // son transitorios: se informa igual y se anima a reintentar en breve.
+    if (respuestaGemini.status === 429 || respuestaGemini.status === 503) {
+      return json(
+        { error: "Gemini esta saturado o sin cuota gratuita disponible ahora mismo. Prueba de nuevo en unos minutos." },
+        respuestaGemini.status,
+      );
+    }
+    return json({ error: "Gemini ha devuelto un error generando el informe." }, 502);
   }
 
   const cuerpo = await respuestaGemini.json();
