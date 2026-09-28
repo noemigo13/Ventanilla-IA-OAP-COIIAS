@@ -130,6 +130,7 @@ export function ReportEditor() {
         r.respuestas,
       );
       const generado = await generarInformeIA(solicitud);
+      const idsValidos = new Set(r.resultado.dimensiones.map((f) => f.id));
       setTextos((prev) => {
         const siguiente: Record<string, string> = {
           ...prev,
@@ -138,7 +139,10 @@ export function ReportEditor() {
           cierre: generado.cierre,
         };
         for (const d of generado.dimensiones) {
-          siguiente[`dim_comentario_${d.id}`] = d.comentario;
+          // Defensa por si el modelo devuelve el nombre en vez del id: un id
+          // que no existe se descarta en vez de crear una clave basura que
+          // nunca se pinta (y que sobreviviria en textos indefinidamente).
+          if (idsValidos.has(d.id)) siguiente[`dim_comentario_${d.id}`] = d.comentario;
         }
         return siguiente;
       });

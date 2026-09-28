@@ -15,14 +15,13 @@ import type { RespuestaInformeIA, SolicitudInformeIA } from "../../src/types/inf
 
 const FIREBASE_PROJECT_ID = process.env.VITE_FIREBASE_PROJECT_ID;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-// "gemini-2.5-flash" ya no esta disponible para claves nuevas (la propia API
-// devuelve 404 pidiendo migrar). "gemini-flash-lite-latest" es el alias que
-// Google mantiene apuntando siempre al flash-lite vigente: en las pruebas de
-// esta clave los modelos flash "grandes" (gemini-flash-latest, 3.5-flash,
-// 3.8-flash) daban 503 "high demand" de forma sostenida, mientras que el
-// lite respondia bien. Revisar si conviene subir a un flash no-lite cuando
-// se pase a la clave definitiva.
-const GEMINI_MODEL = "gemini-flash-lite-latest";
+// La primera clave de prueba (creada nueva en AI Studio) ya no tenia acceso
+// a gemini-2.5-flash (404 pidiendo migrar) y los alias "latest" daban 503
+// de saturacion. Con una clave de un proyecto Gemini mas antiguo si funciona
+// bien y con mejor calidad que el lite. Si la clave definitiva que se ponga
+// mas adelante tampoco tiene acceso a este modelo, volver a "gemini-flash-
+// lite-latest" (ver historial de este fichero).
+const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const jwks = FIREBASE_PROJECT_ID
@@ -66,7 +65,10 @@ const RESPONSE_SCHEMA = {
       items: {
         type: "OBJECT",
         properties: {
-          id: { type: "STRING" },
+          id: {
+            type: "STRING",
+            description: "Copia exactamente el 'id:' de esa area tal como aparece en la entrada, no el nombre.",
+          },
           comentario: {
             type: "STRING",
             description: "2-3 frases sobre esta area, citando por que encajan los videos recomendados.",
@@ -86,7 +88,7 @@ function construirPrompt(datos: SolicitudInformeIA): string {
       const videos = d.videos
         .map((v) => `    - "${v.titulo}" (nivel ${v.nivel ?? "sin nivel"}, ${v.duracion_min} min): ${v.resumen ?? "sin resumen"}`)
         .join("\n");
-      return `- ${d.nombre} (${d.pct}% · ${d.score}/${d.max})\n  Videos recomendados para esta area:\n${videos || "    (ninguno)"}`;
+      return `- id: ${d.id}\n  nombre: ${d.nombre} (${d.pct}% · ${d.score}/${d.max})\n  Videos recomendados para esta area:\n${videos || "    (ninguno)"}`;
     })
     .join("\n\n");
 
@@ -107,6 +109,8 @@ Instrucciones:
 - Tono profesional, cercano y concreto, tuteando al contacto. Nada de relleno de marketing ni frases genericas.
 - Basate solo en los datos anteriores: no inventes cifras, nombres de video ni funcionalidades que no aparezcan.
 - El "resumen_ejecutivo" debe nombrar la prioridad mas urgente (la de menor porcentaje) y por que.
+- En "dimensiones", el campo "id" de cada area debe ser copiado literalmente del "id:" de esa area en la entrada \
+(nunca el nombre ni una traduccion): el dashboard lo usa para encajar tu comentario en el sitio correcto.
 - Cada "comentario" de dimension debe mencionar de forma natural, sin listarlos como catalogo, por que los videos \
 recomendados encajan con el resultado de esa area.
 - Responde unicamente en el formato JSON solicitado.`;
